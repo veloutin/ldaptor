@@ -80,3 +80,31 @@ class LDAPBindingChecker:
             return failure.Failure(error.UnauthorizedLogin())
         d.addErrback(_err)
         return d
+
+class LDAPAuthenticatedBindingChecker(LDAPBindingChecker):
+    """
+
+    The avatarID returned is an LDAPEntry.
+
+    """
+
+    implements(checkers.ICredentialsChecker)
+    credentialInterfaces = (credentials.IUsernamePassword,)
+
+    def __init__(self, cfg, credentials):
+        self.config = cfg
+        self.credentials = credentials
+
+    def _connected(self, client, filt, creds):
+        d = client.bind(self.credentials.username,
+                        self.credentials.password,
+                       )
+
+        base = ldapsyntax.LDAPEntry(client, self.config.getIdentityBaseDN())
+        d.addCallback(lambda *i: base.search(
+            filterObject=filt,
+            sizeLimit=1,
+            attributes=[''], # TODO no attributes
+        ))
+        d.addCallback(self._found, credentials)
+        return d
